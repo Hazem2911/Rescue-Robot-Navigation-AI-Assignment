@@ -21,11 +21,10 @@
 % Modify the grid here to test different scenarios.
 
 grid([
-    [e, e, d, e, s],   % row 0  (s at col 4)
-    [e, f, e, d, e],   % row 1
-    [r, e, e, e, e],   % row 2  (robot starts here)
-    [e, d, f, e, s],   % row 3  (s at col 4)
-    [e, e, e, e, e]    % row 4
+    [r, e, d, e, e],
+    [e, e, f, e, s],
+    [d, e, e, e, e],
+    [e, s, e, f, e]
 ]).
 
 
@@ -35,24 +34,24 @@ grid([
 
 % get_cell(+Grid, +R, +C, -Cell)
 get_cell(Grid, R, C, Cell) :-
-    nth0(R, Grid, Row),
-    nth0(C, Row, Cell).
+    nth1(R, Grid, Row),
+    nth1(C, Row, Cell).
 
 % grid_dims(+Grid, -Rows, -Cols)
 grid_dims(Grid, Rows, Cols) :-
     length(Grid, Rows),
-    nth0(0, Grid, First),
+    nth1(1, Grid, First),
     length(First, Cols).
 
 % find_cell(+Grid, +Type, -pos(R,C)) — first occurrence
 find_cell(Grid, Type, pos(R, C)) :-
-    nth0(R, Grid, Row),
-    nth0(C, Row, Type), !.
+    nth1(R, Grid, Row),
+    nth1(C, Row, Type), !.
 
 % find_all_cells(+Grid, +Type, -Positions)
 find_all_cells(Grid, Type, Positions) :-
     findall(pos(R, C),
-            ( nth0(R, Grid, Row), nth0(C, Row, Type) ),
+            ( nth1(R, Grid, Row), nth1(C, Row, Type) ),
             Positions).
 
 
@@ -72,8 +71,8 @@ try_move(Grid, pos(R, C), Visited, pos(NR, NC)) :-
     member(DR-DC, [-1-0, 1-0, 0-(-1), 0-1]),   % up/down/left/right
     NR is R + DR,
     NC is C + DC,
-    NR >= 0, NR < Rows,
-    NC >= 0, NC < Cols,
+    NR >= 1, NR =< Rows,
+    NC >= 1, NC =< Cols,
     get_cell(Grid, NR, NC, Cell),
     Cell \= d,
     Cell \= f,
