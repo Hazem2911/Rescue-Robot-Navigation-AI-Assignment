@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(where swipl:*)",
+      "Bash(where swipl.exe)",
+      "Read(//c/Program Files/swipl/**)",
+      "Read(//c/Program Files \\(x86\\)/swipl/**)",
+      "Bash(git -C \"E:/Alkolya/courses of kolya/Ai Ass 2\" status)",
+      "Bash(git init *)",
+      "Bash(git remote *)"
+    ]
+  }
+}
