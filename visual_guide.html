@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rescue Robot Navigation — Visual Guide</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'Segoe UI', sans-serif; background: #0d1117; color: #c9d1d9; line-height: 1.5; }
+
+/* ── NAV ── */
+nav { position: sticky; top: 0; z-index: 100; background: #161b22; border-bottom: 1px solid #30363d; display: flex; gap: 4px; padding: 8px 16px; flex-wrap: wrap; }
+nav a { padding: 6px 14px; border-radius: 6px; font-size: 13px; font-weight: 600; text-decoration: none; color: #8b949e; transition: .2s; }
+nav a:hover, nav a.active { background: #21262d; color: #f0f6fc; }
+
+/* ── LAYOUT ── */
+.page-header { text-align: center; padding: 60px 20px 40px; background: linear-gradient(180deg, #1a2332 0%, #0d1117 100%); }
+.page-header h1 { font-size: 2.4rem; background: linear-gradient(135deg, #58a6ff, #3fb950); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 12px; }
+.page-header p { color: #8b949e; font-size: 1.05rem; max-width: 640px; margin: 0 auto; }
+
+section { max-width: 1100px; margin: 0 auto; padding: 48px 24px; }
+section + section { border-top: 1px solid #21262d; }
+.section-title { font-size: 1.5rem; font-weight: 700; color: #f0f6fc; margin-bottom: 8px; }
+.section-title span { font-size: 1rem; font-weight: 400; color: #58a6ff; margin-left: 10px; }
+.section-subtitle { color: #8b949e; font-size: .95rem; margin-bottom: 32px; }
+
+/* ── GRID ── */
+.grid-wrap { display: inline-grid; grid-template-columns: repeat(5, 1fr); gap: 4px; padding: 12px; background: #161b22; border-radius: 12px; border: 1px solid #30363d; }
+.cell {
+  width: 72px; height: 72px; border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  font-size: 24px; font-weight: 700; position: relative;
+  transition: background .3s, transform .2s, box-shadow .3s;
+  border: 2px solid transparent;
+  cursor: default;
+}
+.cell .coord { position: absolute; bottom: 3px; right: 5px; font-size: 9px; color: rgba(255,255,255,.4); font-weight: 400; }
+.cell .hval { position: absolute; top: 3px; right: 5px; font-size: 11px; font-weight: 700; color: rgba(255,255,255,.7); background: rgba(0,0,0,.4); border-radius: 4px; padding: 1px 4px; }
+
+/* Cell base types */
+.cell-e  { background: #1c2128; }
+.cell-r  { background: #1f4e7a; }
+.cell-s  { background: #1b3a2d; }
+.cell-d  { background: #2d2214; }
+.cell-f  { background: #3d1a1a; }
+
+/* Algorithm overlays */
+.cell-current  { background: #7d4e00 !important; border-color: #f39c12 !important; transform: scale(1.08); box-shadow: 0 0 16px #f39c1280; z-index: 10; }
+.cell-frontier { background: #1a3560 !important; border-color: #58a6ff !important; }
+.cell-visited  { background: #1e1e1e !important; border-color: #3a3a3a !important; opacity: .7; }
+.cell-path     { background: #1b4d2e !important; border-color: #3fb950 !important; box-shadow: 0 0 10px #3fb95050; }
+.cell-goal     { background: #4d3800 !important; border-color: #d4a017 !important; animation: goalPulse 1s infinite alternate; }
+.cell-trip2    { background: #2a1b5c !important; border-color: #a371f7 !important; box-shadow: 0 0 10px #a371f750; }
+
+@keyframes goalPulse { from { box-shadow: 0 0 8px #d4a01760; } to { box-shadow: 0 0 24px #d4a017cc; } }
+
+/* ── LEGEND ── */
+.legend { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 24px; }
+.legend-item { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.legend-box { width: 28px; height: 28px; border-radius: 6px; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-size: 14px; }
+
+/* ── ALGORITHM PANEL ── */
+.algo-layout { display: grid; grid-template-columns: auto 1fr; gap: 24px; align-items: start; }
+@media (max-width: 700px) { .algo-layout { grid-template-columns: 1fr; } }
+
+.algo-panel { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; min-width: 280px; }
+.algo-panel h3 { font-size: .85rem; text-transform: uppercase; letter-spacing: .08em; color: #8b949e; margin-bottom: 14px; }
+
+.queue-list { list-style: none; }
+.queue-list li { padding: 6px 10px; margin-bottom: 4px; border-radius: 6px; font-size: 13px; font-family: 'Courier New', monospace; background: #21262d; border-left: 3px solid #58a6ff; display: flex; justify-content: space-between; align-items: center; }
+.queue-list li:first-child { border-left-color: #f39c12; background: #2d2008; }
+.queue-list li .badge { font-size: 11px; padding: 2px 6px; border-radius: 4px; background: #0d1117; }
+
+.closed-grid { display: flex; flex-wrap: wrap; gap: 4px; }
+.closed-tag { font-size: 11px; font-family: monospace; background: #21262d; border-radius: 4px; padding: 2px 6px; color: #8b949e; }
+
+.battery-bar { height: 12px; border-radius: 6px; background: #21262d; overflow: hidden; margin-top: 6px; }
+.battery-fill { height: 100%; border-radius: 6px; transition: width .5s; }
+
+/* ── STEP CONTROLS ── */
+.step-info { margin-top: 20px; }
+.step-title { font-size: 1rem; font-weight: 700; color: #f0f6fc; margin-bottom: 6px; }
+.step-desc  { font-size: .9rem; color: #8b949e; line-height: 1.6; }
+
+.controls { display: flex; align-items: center; gap: 12px; margin-top: 16px; }
+.btn { padding: 8px 20px; border-radius: 8px; border: 1px solid #30363d; background: #21262d; color: #f0f6fc; font-size: 14px; font-weight: 600; cursor: pointer; transition: .2s; }
+.btn:hover:not(:disabled) { background: #30363d; border-color: #58a6ff; color: #58a6ff; }
+.btn:disabled { opacity: .35; cursor: not-allowed; }
+.step-counter { font-size: 13px; color: #8b949e; }
+.progress-dots { display: flex; gap: 5px; }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: #30363d; transition: .2s; cursor: pointer; }
+.dot.active { background: #58a6ff; }
+.dot.done   { background: #3fb950; }
+
+/* ── COMPARISON TABLE ── */
+.compare-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.compare-table th, .compare-table td { padding: 12px 16px; border: 1px solid #21262d; text-align: left; }
+.compare-table thead th { background: #161b22; color: #f0f6fc; font-weight: 700; }
+.compare-table tbody tr:nth-child(even) { background: #0d1117; }
+.compare-table tbody tr:nth-child(odd)  { background: #10161d; }
+.compare-table td:first-child { font-weight: 600; color: #8b949e; }
+.badge-blue   { display: inline-block; background: #1f4e7a; color: #58a6ff; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.badge-green  { display: inline-block; background: #1b3a2d; color: #3fb950; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+.badge-purple { display: inline-block; background: #2d1b4e; color: #a371f7; padding: 2px 8px; border-radius: 4px; font-size: 12px; font-weight: 600; }
+
+/* ── STATE BOX ── */
+.state-cards { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 24px; }
+.state-card  { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 20px; flex: 1; min-width: 200px; }
+.state-card h4 { font-size: .8rem; text-transform: uppercase; letter-spacing: .08em; color: #58a6ff; margin-bottom: 10px; }
+.state-card .value { font-size: 1.3rem; font-family: monospace; color: #f0f6fc; }
+.state-card .desc  { font-size: .8rem; color: #8b949e; margin-top: 6px; }
+
+.path-visual { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; margin-top: 12px; }
+.path-node { background: #21262d; border: 1px solid #3fb950; border-radius: 6px; padding: 4px 10px; font-size: 12px; font-family: monospace; color: #3fb950; }
+.path-arrow { color: #8b949e; font-size: 14px; }
+
+/* ── H-VALUE MAP ── */
+.hmap-note { font-size: 12px; color: #8b949e; margin-top: 8px; }
+
+/* ── CALLOUT ── */
+.callout { background: #161b22; border-left: 4px solid #58a6ff; border-radius: 0 8px 8px 0; padding: 14px 18px; margin: 20px 0; font-size: .9rem; }
+.callout.green  { border-color: #3fb950; }
+.callout.orange { border-color: #f39c12; }
+.callout.purple { border-color: #a371f7; }
+.callout strong { color: #f0f6fc; }
+
+/* ── CONCEPT DIAGRAM ── */
+.concept-row { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 16px; }
+.concept-box { flex: 1; min-width: 180px; background: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 16px; text-align: center; }
+.concept-box .icon { font-size: 2rem; margin-bottom: 8px; }
+.concept-box h4 { font-size: .95rem; color: #f0f6fc; margin-bottom: 6px; }
+.concept-box p  { font-size: .82rem; color: #8b949e; }
+.concept-box .arrow-right { position: absolute; right: -12px; top: 50%; transform: translateY(-50%); font-size: 1.5rem; color: #58a6ff; }
+</style>
+</head>
+<body>
+
+<div class="page-header">
+  <h1>🤖 Rescue Robot Navigation</h1>
+  <p>An interactive visual guide to BFS and Greedy Best-First Search on a 5×5 grid — built for your AI assignment discussion.</p>
+</div>
+
+<nav id="top-nav">
+  <a href="#s-grid" class="active">📐 The Grid</a>
+  <a href="#s-state">📦 State</a>
+  <a href="#s-bfs">🔵 BFS</a>
+  <a href="#s-gbfs">🟢 GBFS</a>
+  <a href="#s-compare">⚖️ Compare</a>
+</nav>
+
+<!-- ═══════════════════════════════════ SECTION 1: GRID ═══ -->
+<section id="s-grid">
+  <div class="section-title">📐 The Environment Grid <span>5 × 5 cells</span></div>
+  <div class="section-subtitle">Every cell is one of five types. The robot can only move up/down/left/right — never diagonal.</div>
+
+  <div style="display:flex; gap:40px; flex-wrap:wrap; align-items:flex-start;">
+    <div>
+      <div class="grid-wrap" id="legend-grid"></div>
+      <div style="margin-top:10px; font-size:12px; color:#8b949e;">
+        Row indices (0–4) ↕ &nbsp;|&nbsp; Col indices (0–4) ↔
+      </div>
+    </div>
+
+    <div style="flex:1; min-width:260px;">
+      <div class="legend">
+        <div class="legend-item"><div class="legend-box cell-r" style="border:2px solid #58a6ff;">🤖</div><div><strong style="color:#58a6ff;">r — Robot Start</strong><br><span style="font-size:12px;color:#8b949e;">pos(2,0). Starting position.</span></div></div>
+        <div class="legend-item"><div class="legend-box cell-s" style="border:2px solid #3fb950;">🧍</div><div><strong style="color:#3fb950;">s — Survivor</strong><br><span style="font-size:12px;color:#8b949e;">pos(0,4) and pos(3,4). Goal cells.</span></div></div>
+        <div class="legend-item"><div class="legend-box cell-d" style="border:2px solid #8b6914;">🪨</div><div><strong style="color:#e3b341;">d — Debris</strong><br><span style="font-size:12px;color:#8b949e;">Blocked. Robot cannot enter.</span></div></div>
+        <div class="legend-item"><div class="legend-box cell-f" style="border:2px solid #f85149;">🔥</div><div><strong style="color:#f85149;">f — Fire</strong><br><span style="font-size:12px;color:#8b949e;">Blocked. Robot cannot enter.</span></div></div>
+        <div class="legend-item"><div class="legend-box cell-e" style="border:2px solid #30363d;">⬜</div><div><strong style="color:#c9d1d9;">e — Empty</strong><br><span style="font-size:12px;color:#8b949e;">Free to traverse.</span></div></div>
+      </div>
+
+      <div class="callout" style="margin-top:0;">
+        <strong>Move rules:</strong> Each step costs <strong>10% battery</strong>. The robot starts with 100% (max 10 steps). It cannot move into <code>d</code> or <code>f</code>, and it <strong>cannot revisit</strong> any cell (no cycles).
+      </div>
+
+      <div class="callout green">
+        <strong>Survivors:</strong> Two survivors exist — at <code>pos(0,4)</code> (top-right) and <code>pos(3,4)</code> (right-middle).
+        <br>Part 1 finds the <em>nearest</em> one. Part 2 tries to collect <em>both</em>.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ SECTION 2: STATE ═══ -->
+<section id="s-state">
+  <div class="section-title">📦 State Representation</div>
+  <div class="section-subtitle">Each node in the search tree stores these four pieces of information.</div>
+
+  <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px; flex-wrap:wrap;" class="state-cards-grid">
+
+    <div style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:20px;">
+      <h3 style="color:#58a6ff; font-size:.85rem; letter-spacing:.08em; text-transform:uppercase; margin-bottom:16px;">Part 1 — BFS Node</h3>
+      <code style="display:block; background:#0d1117; padding:16px; border-radius:8px; font-size:13px; line-height:2; color:#e6edf3;">
+        <span style="color:#ff7b72;">bfs_node</span>(<br>
+        &nbsp;&nbsp;<span style="color:#79c0ff;">Pos</span>,        <span style="color:#6e7681;">% pos(Row, Col)</span><br>
+        &nbsp;&nbsp;<span style="color:#79c0ff;">RevPath</span>,    <span style="color:#6e7681;">% path, newest first</span><br>
+        &nbsp;&nbsp;<span style="color:#79c0ff;">Battery</span>     <span style="color:#6e7681;">% 100, 90, 80 ...</span><br>
+        )
+      </code>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:14px;">
+        <div style="background:#21262d; border-radius:8px; padding:10px; font-size:12px;"><div style="color:#8b949e; margin-bottom:4px;">Example position</div><div style="font-family:monospace; color:#79c0ff;">pos(2, 0)</div></div>
+        <div style="background:#21262d; border-radius:8px; padding:10px; font-size:12px;"><div style="color:#8b949e; margin-bottom:4px;">Battery after 3 steps</div><div style="font-family:monospace; color:#3fb950;">70%</div></div>
+        <div style="background:#21262d; border-radius:8px; padding:10px; font-size:12px; grid-column:1/-1;"><div style="color:#8b949e; margin-bottom:4px;">Reversed path (newest first)</div><div style="font-family:monospace; color:#e3b341; font-size:11px;">[pos(2,3), pos(2,2), pos(2,1), pos(2,0)]</div></div>
+      </div>
+    </div>
+
+    <div style="background:#161b22; border:1px solid #30363d; border-radius:12px; padding:20px;">
+      <h3 style="color:#a371f7; font-size:.85rem; letter-spacing:.08em; text-transform:uppercase; margin-bottom:16px;">Part 2 — GBFS Node</h3>
+      <code style="display:block; background:#0d1117; padding:16px; border-radius:8px; font-size:13px; line-height:2; color:#e6edf3;">
+        <span style="color:#ff7b72;">gbfs_node</span>(<br>
+        &nbsp;&nbsp;<span style="color:#79c0ff;">Pos</span>,        <span style="color:#6e7681;">% pos(Row, Col)</span><br>
+        &nbsp;&nbsp;<span style="color:#79c0ff;">RevPath</span>,    <span style="color:#6e7681;">% path, newest first</span><br>
+        &nbsp;&nbsp;<span style="color:#79c0ff;">Steps</span>       <span style="color:#6e7681;">% step counter</span><br>
+        )
+      </code>
+      <div style="margin-top:14px; background:#21262d; border-radius:8px; padding:12px; font-size:12px;">
+        <div style="color:#8b949e; margin-bottom:6px;">Open list entry — sorted by heuristic H:</div>
+        <code style="font-size:12px; color:#a371f7;">h(H, gbfs_node(pos(3,3), [...], 4))</code>
+        <div style="margin-top:8px; color:#8b949e;">The open list is kept <strong style="color:#f0f6fc;">sorted ascending by H</strong> — smallest H = most promising = popped first.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="callout orange" style="margin-top:24px;">
+    <strong>Why store the path reversed?</strong> In Prolog, prepending to a list (<code>[NewPos|RevPath]</code>) is O(1) — much faster than appending to the end. At the goal, we call <code>reverse/2</code> once to get the forward path.
+  </div>
+
+  <div style="margin-top:24px;">
+    <div style="font-size:1rem; font-weight:700; color:#f0f6fc; margin-bottom:12px;">Open List vs Closed List — What they do:</div>
+    <div class="concept-row">
+      <div class="concept-box">
+        <div class="icon">📋</div>
+        <h4>Open List</h4>
+        <p>Nodes <em>waiting to be explored</em>. BFS uses a FIFO queue. GBFS uses a min-heap sorted by heuristic H.</p>
+      </div>
+      <div class="concept-box">
+        <div class="icon">✅</div>
+        <h4>Closed List</h4>
+        <p>Positions <em>already visited</em>. Before adding a neighbor, we check it's not in the closed list to prevent cycles.</p>
+      </div>
+      <div class="concept-box">
+        <div class="icon">🔄</div>
+        <h4>The Loop</h4>
+        <p><strong>Pop</strong> from open → <strong>goal check</strong> → <strong>expand</strong> neighbors → <strong>add valid</strong> ones to open → repeat.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ SECTION 3: BFS ════ -->
+<section id="s-bfs">
+  <div class="section-title">🔵 Part 1 — Breadth-First Search <span>Uninformed</span></div>
+  <div class="section-subtitle">BFS expands all nodes at depth d before any node at depth d+1. This guarantees finding the <strong>nearest</strong> survivor (fewest steps).</div>
+
+  <div class="callout">
+    <strong>Key insight:</strong> BFS uses a <strong>FIFO queue</strong> — children are appended to the tail, so the oldest (shallowest) node is always processed first. The first survivor we pop from the queue is necessarily the closest one.
+  </div>
+
+  <div class="algo-layout" style="margin-top:24px;">
+    <div>
+      <div class="grid-wrap" id="bfs-grid"></div>
+      <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#7d4e00;border:2px solid #f39c12;"></div> Expanding now</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#1a3560;border:2px solid #58a6ff;"></div> In open list</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#1e1e1e;border:2px solid #3a3a3a;"></div> Visited/closed</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#1b4d2e;border:2px solid #3fb950;"></div> Final path</div>
+      </div>
+    </div>
+
+    <div class="algo-panel">
+      <h3>📥 Open List (FIFO Queue)</h3>
+      <ul class="queue-list" id="bfs-open"></ul>
+      <div style="margin-top:14px;">
+        <h3 style="font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:#8b949e; margin-bottom:8px;">✅ Closed List (Visited)</h3>
+        <div class="closed-grid" id="bfs-closed"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <h3 style="font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:#8b949e; margin-bottom:6px;">🔋 Battery</h3>
+        <div style="display:flex; align-items:center; gap:8px;">
+          <div class="battery-bar" style="flex:1;"><div class="battery-fill" id="bfs-battery-fill" style="background:#3fb950;"></div></div>
+          <span id="bfs-battery-text" style="font-family:monospace; font-size:13px; color:#3fb950; min-width:36px;">100%</span>
+        </div>
+      </div>
+
+      <div class="step-info">
+        <div class="step-title" id="bfs-step-title">Step 0 — Initialize</div>
+        <div class="step-desc" id="bfs-step-desc">Robot starts at pos(2,0). Battery: 100%. Open list contains only the start node.</div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="bfs-prev" onclick="bfsStep(-1)" disabled>◀ Prev</button>
+        <button class="btn" id="bfs-next" onclick="bfsStep(1)">Next ▶</button>
+        <span class="step-counter" id="bfs-counter">Step 1 / 9</span>
+      </div>
+      <div class="progress-dots" id="bfs-dots" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- BFS Result Box -->
+  <div id="bfs-result" style="display:none; margin-top:24px; background:#0d2318; border:1px solid #3fb950; border-radius:12px; padding:20px;">
+    <h3 style="color:#3fb950; margin-bottom:12px;">✅ BFS Result</h3>
+    <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:12px;">
+      <div style="background:#161b22; border-radius:8px; padding:12px; text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#3fb950;">5</div>
+        <div style="font-size:12px; color:#8b949e; margin-top:4px;">Steps taken</div>
+      </div>
+      <div style="background:#161b22; border-radius:8px; padding:12px; text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#e3b341;">50%</div>
+        <div style="font-size:12px; color:#8b949e; margin-top:4px;">Battery left</div>
+      </div>
+      <div style="background:#161b22; border-radius:8px; padding:12px; text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#58a6ff;">pos(3,4)</div>
+        <div style="font-size:12px; color:#8b949e; margin-top:4px;">Survivor found</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <div style="font-size:12px; color:#8b949e; margin-bottom:6px;">Path taken:</div>
+      <div class="path-visual">
+        <div class="path-node">pos(2,0)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(2,1)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(2,2)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(2,3)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(3,3)</div><div class="path-arrow">→</div>
+        <div class="path-node" style="background:#1b4d2e; border-color:#3fb950;">pos(3,4) 🧍</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ SECTION 4: GBFS ═══ -->
+<section id="s-gbfs">
+  <div class="section-title">🟢 Part 2 — Greedy Best-First Search <span>Informed</span></div>
+  <div class="section-subtitle">GBFS uses a <strong>heuristic</strong> to always expand the most promising node first. Goal: collect as many survivors as possible.</div>
+
+  <div class="callout purple">
+    <strong>Heuristic H</strong> = Manhattan distance to the nearest remaining survivor.<br>
+    Manhattan distance between <code>pos(R1,C1)</code> and <code>pos(R2,C2)</code> = <code>|R1−R2| + |C1−C2|</code><br>
+    <strong>Lower H = closer to a survivor = higher priority in the open list.</strong>
+  </div>
+
+  <!-- H-value map static diagram -->
+  <div style="margin-top:24px; display:flex; gap:32px; flex-wrap:wrap; align-items:flex-start;">
+    <div>
+      <div style="font-size:.85rem; color:#8b949e; margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;">H-Value Map (both survivors remaining)</div>
+      <div class="grid-wrap" id="hmap-grid"></div>
+      <p class="hmap-note">Each cell shows H = min(Manhattan to s1, Manhattan to s2).<br>Smaller = robot is closer to a survivor.</p>
+    </div>
+    <div style="flex:1; min-width:250px;">
+      <div style="font-size:.85rem; color:#8b949e; margin-bottom:8px; font-weight:600; text-transform:uppercase; letter-spacing:.06em;">How GBFS uses H</div>
+      <div class="concept-row" style="flex-direction:column; gap:10px;">
+        <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; display:flex; align-items:center; gap:12px;">
+          <div style="font-size:1.5rem;">1️⃣</div>
+          <div style="font-size:.88rem;">Generate all valid neighbors of the current node.</div>
+        </div>
+        <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; display:flex; align-items:center; gap:12px;">
+          <div style="font-size:1.5rem;">2️⃣</div>
+          <div style="font-size:.88rem;">Compute H for each neighbor. Insert into the open list <strong>in sorted order</strong> (ascending H).</div>
+        </div>
+        <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; display:flex; align-items:center; gap:12px;">
+          <div style="font-size:1.5rem;">3️⃣</div>
+          <div style="font-size:.88rem;">Always pop the node with <strong>lowest H</strong> from the open list — that's the greedy choice.</div>
+        </div>
+        <div style="background:#161b22; border:1px solid #30363d; border-radius:8px; padding:12px; display:flex; align-items:center; gap:12px;">
+          <div style="font-size:1.5rem;">4️⃣</div>
+          <div style="font-size:.88rem;">When a survivor is reached, start a new trip from that position (keeping the closed list).</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="algo-layout" style="margin-top:32px;">
+    <div>
+      <div class="grid-wrap" id="gbfs-grid"></div>
+      <div style="margin-top:10px; display:flex; flex-wrap:wrap; gap:8px;">
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#7d4e00;border:2px solid #f39c12;"></div> Expanding now</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#1a3560;border:2px solid #58a6ff;"></div> In open list</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#1b4d2e;border:2px solid #3fb950;"></div> Trip 1 path</div>
+        <div style="display:flex;align-items:center;gap:5px;font-size:12px;"><div style="width:16px;height:16px;border-radius:3px;background:#2a1b5c;border:2px solid #a371f7;"></div> Trip 2 path</div>
+      </div>
+    </div>
+
+    <div class="algo-panel">
+      <h3>📥 Open List (Min-Heap by H)</h3>
+      <ul class="queue-list" id="gbfs-open"></ul>
+      <div style="margin-top:14px;">
+        <h3 style="font-size:.85rem; text-transform:uppercase; letter-spacing:.08em; color:#8b949e; margin-bottom:6px;">📍 Current Trip</h3>
+        <div id="gbfs-trip" style="font-family:monospace; font-size:13px; color:#a371f7; background:#21262d; padding:6px 10px; border-radius:6px;">Trip 1 — heading to nearest survivor</div>
+      </div>
+
+      <div class="step-info">
+        <div class="step-title" id="gbfs-step-title">Step 0 — Initialize</div>
+        <div class="step-desc" id="gbfs-step-desc">Robot at pos(2,0). Two survivors: pos(0,4) H=6, pos(3,4) H=5. Greedy picks the nearest.</div>
+      </div>
+
+      <div class="controls">
+        <button class="btn" id="gbfs-prev" onclick="gbfsStep(-1)" disabled>◀ Prev</button>
+        <button class="btn" id="gbfs-next" onclick="gbfsStep(1)">Next ▶</button>
+        <span class="step-counter" id="gbfs-counter">Step 1 / 10</span>
+      </div>
+      <div class="progress-dots" id="gbfs-dots" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <!-- GBFS Result Box -->
+  <div id="gbfs-result" style="display:none; margin-top:24px; background:#1a0d2e; border:1px solid #a371f7; border-radius:12px; padding:20px;">
+    <h3 style="color:#a371f7; margin-bottom:12px;">✅ GBFS Result</h3>
+    <div style="display:grid; grid-template-columns: repeat(3,1fr); gap:12px;">
+      <div style="background:#161b22; border-radius:8px; padding:12px; text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#a371f7;">8</div>
+        <div style="font-size:12px; color:#8b949e; margin-top:4px;">Total steps</div>
+      </div>
+      <div style="background:#161b22; border-radius:8px; padding:12px; text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#3fb950;">2</div>
+        <div style="font-size:12px; color:#8b949e; margin-top:4px;">Survivors rescued</div>
+      </div>
+      <div style="background:#161b22; border-radius:8px; padding:12px; text-align:center;">
+        <div style="font-size:2rem; font-weight:700; color:#58a6ff;">5+3</div>
+        <div style="font-size:12px; color:#8b949e; margin-top:4px;">Steps per trip</div>
+      </div>
+    </div>
+    <div style="margin-top:14px;">
+      <div style="font-size:12px; color:#8b949e; margin-bottom:6px;">Trip 1 path (green):</div>
+      <div class="path-visual">
+        <div class="path-node">pos(2,0)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(2,1)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(2,2)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(2,3)</div><div class="path-arrow">→</div>
+        <div class="path-node">pos(3,3)</div><div class="path-arrow">→</div>
+        <div class="path-node" style="background:#1b4d2e; border-color:#3fb950;">pos(3,4) 🧍</div>
+      </div>
+      <div style="font-size:12px; color:#8b949e; margin-bottom:6px; margin-top:10px;">Trip 2 path (purple):</div>
+      <div class="path-visual">
+        <div class="path-node" style="border-color:#a371f7;">pos(3,4)</div><div class="path-arrow">→</div>
+        <div class="path-node" style="border-color:#a371f7;">pos(2,4)</div><div class="path-arrow">→</div>
+        <div class="path-node" style="border-color:#a371f7;">pos(1,4)</div><div class="path-arrow">→</div>
+        <div class="path-node" style="background:#2a1b5c; border-color:#a371f7;">pos(0,4) 🧍</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ SECTION 5: COMPARE ═══ -->
+<section id="s-compare">
+  <div class="section-title">⚖️ Algorithm Comparison</div>
+  <div class="section-subtitle">How do BFS and GBFS differ in strategy, guarantees, and results?</div>
+
+  <table class="compare-table">
+    <thead>
+      <tr>
+        <th>Property</th>
+        <th>🔵 BFS (Part 1)</th>
+        <th>🟢 Greedy BFS (Part 2)</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr><td>Algorithm type</td><td><span class="badge-blue">Uninformed</span></td><td><span class="badge-green">Informed</span></td></tr>
+      <tr><td>Open list structure</td><td>FIFO Queue — append to tail</td><td>Sorted List / Min-Heap by H</td></tr>
+      <tr><td>Next node to expand</td><td>Oldest (shallowest) node</td><td>Node with lowest heuristic H</td></tr>
+      <tr><td>Uses heuristic?</td><td>No — blind search</td><td>Yes — Manhattan distance to nearest survivor</td></tr>
+      <tr><td>Guarantee</td><td><strong style="color:#3fb950;">Optimal</strong> — always finds nearest survivor (fewest steps)</td><td><strong style="color:#e3b341;">Greedy</strong> — fast but not guaranteed optimal</td></tr>
+      <tr><td>Goal</td><td>Reach the single nearest survivor</td><td>Collect as many survivors as possible</td></tr>
+      <tr><td>Battery tracking</td><td>Yes — stops if battery hits 0</td><td>No explicit battery (Steps tracked instead)</td></tr>
+      <tr><td>Multi-trip?</td><td>No — single trip, stops at first survivor</td><td>Yes — iterates: find survivor → collect → repeat</td></tr>
+      <tr><td>Result on this grid</td><td>5 steps, 50% battery, pos(3,4)</td><td>8 steps total, 2 survivors collected</td></tr>
+      <tr><td>Completeness</td><td>Complete (finds answer if path exists)</td><td>May miss a survivor if path is blocked by visited cells</td></tr>
+      <tr><td>Prolog key predicate</td><td><code>bfs_loop/6</code></td><td><code>gbfs_loop/7</code> + <code>collect_all/8</code></td></tr>
+    </tbody>
+  </table>
+
+  <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:24px;">
+    <div class="callout">
+      <strong>Why does BFS expand so many nodes?</strong> It doesn't know which direction leads to a survivor, so it fans out in all directions equally — 17 pops before finding pos(3,4). Guaranteed shortest path but expensive.
+    </div>
+    <div class="callout purple">
+      <strong>Why is GBFS faster?</strong> The heuristic guides the robot toward survivors. From pos(2,0), GBFS immediately heads toward pos(3,4) (H=5) instead of exploring random directions. It finds survivors in fewer expansions — but may not find the globally optimal sequence.
+    </div>
+  </div>
+</section>
+
+<div style="text-align:center; padding:40px; color:#3a3f47; font-size:13px;">
+  Rescue Robot Navigation — AI Assignment Visual Guide
+</div>
+
+<script>
+// ──────────────────────────────────────────────────────────────
+// Grid data
+// ──────────────────────────────────────────────────────────────
+const GRID = [
+  ['e','e','d','e','s'],
+  ['e','f','e','d','e'],
+  ['r','e','e','e','e'],
+  ['e','d','f','e','s'],
+  ['e','e','e','e','e']
+];
+
+const ICONS = { r:'🤖', s:'🧍', d:'🪨', f:'🔥', e:'' };
+
+// H-values: min Manhattan to pos(0,4) or pos(3,4)
+const HMAP = [
+  [4, 3, null, 1, 0],
+  [5, null, 3, null, 1],
+  [5, 4, 3, 2, 1],
+  [4, null, null, 1, 0],
+  [5, 4, 3, 2, 1]
+];
+
+// ──────────────────────────────────────────────────────────────
+// Build legend grid
+// ──────────────────────────────────────────────────────────────
+function buildGrid(containerId, opts = {}) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const type = GRID[r][c];
+      const div = document.createElement('div');
+      div.className = `cell cell-${type}`;
+      div.id = `${containerId}-${r}-${c}`;
+      div.innerHTML = `${ICONS[type]}<span class="coord">${r},${c}</span>`;
+      if (opts.showH && HMAP[r][c] !== null && type !== 's') {
+        const hv = document.createElement('span');
+        hv.className = 'hval';
+        hv.textContent = 'H=' + HMAP[r][c];
+        div.appendChild(hv);
+      }
+      el.appendChild(div);
+    }
+  }
+}
+
+buildGrid('legend-grid');
+
+// H-map grid (shows heuristic values)
+function buildHmapGrid() {
+  const el = document.getElementById('hmap-grid');
+  el.innerHTML = '';
+  for (let r = 0; r < 5; r++) {
+    for (let c = 0; c < 5; c++) {
+      const type = GRID[r][c];
+      const div = document.createElement('div');
+      div.className = `cell cell-${type}`;
+      let icon = ICONS[type];
+      const h = HMAP[r][c];
+      if (type === 's') {
+        div.innerHTML = `${icon}<span class="hval" style="color:#3fb950;">H=0</span><span class="coord">${r},${c}</span>`;
+      } else if (type === 'e' || type === 'r') {
+        const color = h <= 1 ? '#3fb950' : h <= 2 ? '#58a6ff' : h <= 3 ? '#e3b341' : '#f85149';
+        div.innerHTML = `${icon}<span class="hval" style="color:${color};">${h !== null ? 'H='+h : ''}</span><span class="coord">${r},${c}</span>`;
+      } else {
+        div.innerHTML = `${icon}<span class="coord">${r},${c}</span>`;
+      }
+      el.appendChild(div);
+    }
+  }
+}
+buildHmapGrid();
+
+// ──────────────────────────────────────────────────────────────
+// BFS Steps Data
+// ──────────────────────────────────────────────────────────────
+const BFS_STEPS = [
+  {
+    title: 'Step 0 — Initialize',
+    desc: 'Robot starts at pos(2,0). Battery: 100%. Only start node in Open list. Closed list = [pos(2,0)].',
+    expanding: null,
+    frontier: [],
+    visited:  [[2,0]],
+    path: [],
+    open: [{ label: 'pos(2,0)', badge: 'bat=100%', first: true }],
+    closedTags: ['pos(2,0)'],
+    battery: 100,
+    goal: false
+  },
+  {
+    title: 'Step 1 — Expand pos(2,0) → Level 1',
+    desc: 'Pop pos(2,0). Not a survivor. Expand: valid neighbors are pos(1,0), pos(3,0), pos(2,1). Blocked: (1,1)=fire, (3,1)=debris. All three added to queue at battery=90%.',
+    expanding: [2,0],
+    frontier: [[1,0],[3,0],[2,1]],
+    visited:  [[2,0],[1,0],[3,0],[2,1]],
+    path: [],
+    open: [
+      { label: 'pos(1,0)', badge: 'bat=90%', first: true },
+      { label: 'pos(3,0)', badge: 'bat=90%' },
+      { label: 'pos(2,1)', badge: 'bat=90%' }
+    ],
+    closedTags: ['pos(2,0)','pos(1,0)','pos(3,0)','pos(2,1)'],
+    battery: 90,
+    goal: false
+  },
+  {
+    title: 'Step 2–4 — Expand Level 1 nodes',
+    desc: 'Pop pos(1,0) → adds pos(0,0). Pop pos(3,0) → adds pos(4,0). Pop pos(2,1) → adds pos(2,2). Notice: (1,1)=fire and (3,1)=debris are never added.',
+    expanding: [2,1],
+    frontier: [[0,0],[4,0],[2,2]],
+    visited:  [[2,0],[1,0],[3,0],[2,1],[0,0],[4,0],[2,2]],
+    path: [],
+    open: [
+      { label: 'pos(0,0)', badge: 'bat=80%', first: true },
+      { label: 'pos(4,0)', badge: 'bat=80%' },
+      { label: 'pos(2,2)', badge: 'bat=80%' }
+    ],
+    closedTags: ['pos(2,0)','pos(1,0)','pos(3,0)','pos(2,1)','pos(0,0)','pos(4,0)','pos(2,2)'],
+    battery: 80,
+    goal: false
+  },
+  {
+    title: 'Step 5–7 — Expand Level 2 nodes',
+    desc: 'Pop pos(0,0) → adds pos(0,1). Pop pos(4,0) → adds pos(4,1). Pop pos(2,2) → adds pos(1,2) AND pos(2,3). BFS is expanding level-by-level like ripples in water.',
+    expanding: [2,2],
+    frontier: [[0,1],[4,1],[1,2],[2,3]],
+    visited:  [[2,0],[1,0],[3,0],[2,1],[0,0],[4,0],[2,2],[0,1],[4,1],[1,2],[2,3]],
+    path: [],
+    open: [
+      { label: 'pos(0,1)', badge: 'bat=70%', first: true },
+      { label: 'pos(4,1)', badge: 'bat=70%' },
+      { label: 'pos(1,2)', badge: 'bat=70%' },
+      { label: 'pos(2,3)', badge: 'bat=70%' }
+    ],
+    closedTags: ['pos(2,0)','…7 cells…','pos(0,1)','pos(4,1)','pos(1,2)','pos(2,3)'],
+    battery: 70,
+    goal: false
+  },
+  {
+    title: 'Step 8–10 — Dead ends & pos(2,3) key step',
+    desc: 'Pop pos(0,1) → all neighbors blocked or visited. Pop pos(4,1) → adds pos(4,2). Pop pos(1,2) → all blocked. Pop pos(2,3) → adds pos(3,3) and pos(2,4). This is the key fork toward both survivors!',
+    expanding: [2,3],
+    frontier: [[4,2],[3,3],[2,4]],
+    visited:  [[2,0],[1,0],[3,0],[2,1],[0,0],[4,0],[2,2],[0,1],[4,1],[1,2],[2,3],[4,2],[3,3],[2,4]],
+    path: [],
+    open: [
+      { label: 'pos(4,2)', badge: 'bat=60%', first: true },
+      { label: 'pos(3,3)', badge: 'bat=60%' },
+      { label: 'pos(2,4)', badge: 'bat=60%' }
+    ],
+    closedTags: ['…11 cells…','pos(4,2)','pos(3,3)','pos(2,4)'],
+    battery: 60,
+    goal: false
+  },
+  {
+    title: 'Step 11–12 — pos(3,3) discovers survivor!',
+    desc: 'Pop pos(4,2) → adds pos(4,3). Pop pos(3,3) → right neighbor is pos(3,4)=SURVIVOR! Add to queue. Also pos(4,3) is already in closed, so not added again.',
+    expanding: [3,3],
+    frontier: [[2,4],[4,3],[3,4]],
+    visited:  [[2,0],[1,0],[3,0],[2,1],[0,0],[4,0],[2,2],[0,1],[4,1],[1,2],[2,3],[4,2],[3,3],[2,4],[4,3],[3,4]],
+    path: [],
+    open: [
+      { label: 'pos(2,4)', badge: 'bat=60%', first: true },
+      { label: 'pos(4,3)', badge: 'bat=50%' },
+      { label: 'pos(3,4) 🧍', badge: 'bat=50% ★' }
+    ],
+    closedTags: ['…14 cells…','pos(4,3)','pos(3,4)'],
+    battery: 50,
+    goal: false
+  },
+  {
+    title: 'Step 13–15 — FIFO: older nodes processed first',
+    desc: 'IMPORTANT: pos(2,4) and pos(4,3) were queued BEFORE pos(3,4), so BFS processes them first! This is the FIFO property. pos(2,4) → adds pos(1,4). pos(4,3) → adds pos(4,4). Then pos(3,4) is next.',
+    expanding: [4,3],
+    frontier: [[3,4],[1,4],[4,4]],
+    visited:  [[2,0],[1,0],[3,0],[2,1],[0,0],[4,0],[2,2],[0,1],[4,1],[1,2],[2,3],[4,2],[3,3],[2,4],[4,3],[3,4],[1,4],[4,4]],
+    path: [],
+    open: [
+      { label: 'pos(3,4) 🧍', badge: 'bat=50% ← NEXT', first: true },
+      { label: 'pos(1,4)', badge: 'bat=50%' },
+      { label: 'pos(4,4)', badge: 'bat=40%' }
+    ],
+    closedTags: ['…all 18 visited cells…'],
+    battery: 50,
+    goal: false
+  },
+  {
+    title: '✅ GOAL FOUND — pos(3,4) is a survivor!',
+    desc: 'Pop pos(3,4). Goal check: get_cell(Grid, 3, 4, s) → SUCCESS! Path traced back through RevPath. Result: 5 steps, 50% battery remaining.',
+    expanding: null,
+    frontier: [],
+    visited:  [[2,0],[1,0],[3,0],[2,1],[0,0],[4,0],[2,2],[0,1],[4,1],[1,2],[2,3],[4,2],[3,3],[2,4],[4,3],[3,4],[1,4],[4,4]],
+    path: [[2,0],[2,1],[2,2],[2,3],[3,3],[3,4]],
+    open: [{ label: '🎯 GOAL REACHED!', badge: '', first: true }],
+    closedTags: ['all 18 cells visited'],
+    battery: 50,
+    goal: true
+  }
+];
+
+// ──────────────────────────────────────────────────────────────
+// GBFS Steps Data
+// ──────────────────────────────────────────────────────────────
+const GBFS_STEPS = [
+  {
+    title: 'Initialize — Show H values',
+    desc: 'Robot at pos(2,0). Survivors at pos(0,4) and pos(3,4). H(2,0) = min(|2-0|+|0-4|, |2-3|+|0-4|) = min(6,5) = 5. Open = [h(5, pos(2,0))].',
+    expanding: null, frontier: [], visited: [[2,0]], path1: [], path2: [],
+    open: [{ label: 'h=5  pos(2,0)', badge: '← best', first: true }],
+    trip: 'Trip 1 — start at pos(2,0)',
+    goal: false
+  },
+  {
+    title: 'Step 1 — Expand pos(2,0) [H=5]',
+    desc: 'Generate neighbors: pos(1,0) H=5, pos(3,0) H=4, pos(2,1) H=4. Open list sorted: [h=4 pos(3,0), h=4 pos(2,1), h=5 pos(1,0)]. Greedy picks pos(3,0) first!',
+    expanding: [2,0], frontier: [[3,0],[2,1],[1,0]], visited: [[2,0],[1,0],[3,0],[2,1]], path1: [], path2: [],
+    open: [
+      { label: 'h=4  pos(3,0)', badge: '← best', first: true },
+      { label: 'h=4  pos(2,1)', badge: '' },
+      { label: 'h=5  pos(1,0)', badge: '' }
+    ],
+    trip: 'Trip 1 — heading toward pos(3,4)',
+    goal: false
+  },
+  {
+    title: 'Step 2 — Expand pos(3,0) [H=4]',
+    desc: 'pos(3,0) has H=4 (tied with pos(2,1)). Expand: only valid neighbor is pos(4,0) H=5. Open: [h=4 pos(2,1), h=5 pos(1,0), h=5 pos(4,0)].',
+    expanding: [3,0], frontier: [[2,1],[1,0],[4,0]], visited: [[2,0],[1,0],[3,0],[2,1],[4,0]], path1: [], path2: [],
+    open: [
+      { label: 'h=4  pos(2,1)', badge: '← best', first: true },
+      { label: 'h=5  pos(1,0)', badge: '' },
+      { label: 'h=5  pos(4,0)', badge: '' }
+    ],
+    trip: 'Trip 1 — heading toward pos(3,4)',
+    goal: false
+  },
+  {
+    title: 'Step 3 — Expand pos(2,1) [H=4]',
+    desc: 'Only valid unvisited neighbor: pos(2,2) with H=3. Open: [h=3 pos(2,2), h=5 pos(1,0), h=5 pos(4,0)]. H decreasing = getting closer!',
+    expanding: [2,1], frontier: [[2,2],[1,0],[4,0]], visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2]], path1: [], path2: [],
+    open: [
+      { label: 'h=3  pos(2,2)', badge: '← best', first: true },
+      { label: 'h=5  pos(1,0)', badge: '' },
+      { label: 'h=5  pos(4,0)', badge: '' }
+    ],
+    trip: 'Trip 1 — H decreasing: getting closer',
+    goal: false
+  },
+  {
+    title: 'Step 4 — Expand pos(2,2) [H=3]',
+    desc: 'Neighbors: pos(1,2) H=3, pos(2,3) H=2. Open: [h=2 pos(2,3), h=3 pos(1,2), h=5 …]. Greedy immediately jumps to pos(2,3).',
+    expanding: [2,2], frontier: [[2,3],[1,2],[1,0],[4,0]], visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2],[1,2],[2,3]], path1: [], path2: [],
+    open: [
+      { label: 'h=2  pos(2,3)', badge: '← best', first: true },
+      { label: 'h=3  pos(1,2)', badge: '' },
+      { label: 'h=5  pos(1,0)  …', badge: '' }
+    ],
+    trip: 'Trip 1 — approaching corridor to survivor',
+    goal: false
+  },
+  {
+    title: 'Step 5 — Expand pos(2,3) [H=2]',
+    desc: 'Neighbors: pos(3,3) H=1, pos(2,4) H=1. Both added. Open: [h=1 pos(3,3), h=1 pos(2,4), h=3 pos(1,2), …]. One step away from survivor!',
+    expanding: [2,3], frontier: [[3,3],[2,4],[1,2],[1,0],[4,0]], visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2],[1,2],[2,3],[3,3],[2,4]], path1: [], path2: [],
+    open: [
+      { label: 'h=1  pos(3,3)', badge: '← best', first: true },
+      { label: 'h=1  pos(2,4)', badge: '' },
+      { label: 'h=3  pos(1,2)  …', badge: '' }
+    ],
+    trip: 'Trip 1 — H=1, one step from survivor!',
+    goal: false
+  },
+  {
+    title: 'Step 6 — Expand pos(3,3) [H=1] → Survivor discovered!',
+    desc: 'From pos(3,3), right neighbor is pos(3,4)=survivor with H=0! Add h(0, pos(3,4)) to open. It jumps to front instantly.',
+    expanding: [3,3], frontier: [[3,4],[2,4],[1,2],[1,0],[4,0]], visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2],[1,2],[2,3],[3,3],[2,4],[3,4]], path1: [], path2: [],
+    open: [
+      { label: 'h=0  pos(3,4) 🧍', badge: '← H=0! GOAL', first: true },
+      { label: 'h=1  pos(2,4)', badge: '' },
+      { label: 'h=3  pos(1,2)  …', badge: '' }
+    ],
+    trip: 'Trip 1 — pos(3,4) has H=0, jumps to front!',
+    goal: false
+  },
+  {
+    title: '✅ Trip 1 Complete — pos(3,4) reached! [5 steps]',
+    desc: 'Pop pos(3,4). It\'s a survivor! Collect it. Path: pos(2,0)→pos(2,1)→pos(2,2)→pos(2,3)→pos(3,3)→pos(3,4). Now start Trip 2 from pos(3,4).',
+    expanding: null, frontier: [], visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2],[1,2],[2,3],[3,3],[2,4],[3,4]],
+    path1: [[2,0],[2,1],[2,2],[2,3],[3,3],[3,4]], path2: [],
+    open: [{ label: 'Starting Trip 2…', badge: '', first: true }],
+    trip: '✅ Trip 1 done! Collected pos(3,4)',
+    goal: false
+  },
+  {
+    title: 'Trip 2 — Head to pos(0,4) [H resets]',
+    desc: 'Now only one survivor remains: pos(0,4). H values reset: H(r,c) = |r−0| + |c−4|. From pos(3,4): H=|3-0|+|4-4|=3. Expand: pos(2,4) H=2, pos(4,4) H=4.',
+    expanding: [3,4], frontier: [[2,4],[4,4]],
+    visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2],[1,2],[2,3],[3,3],[2,4],[3,4],[4,4]],
+    path1: [[2,0],[2,1],[2,2],[2,3],[3,3],[3,4]], path2: [[3,4]],
+    open: [
+      { label: 'h=2  pos(2,4)', badge: '← best', first: true },
+      { label: 'h=4  pos(4,4)', badge: '' }
+    ],
+    trip: 'Trip 2 — heading to pos(0,4)',
+    goal: false
+  },
+  {
+    title: 'Trip 2 Steps 2–3 — pos(2,4)→pos(1,4)→pos(0,4)',
+    desc: 'Expand pos(2,4) H=2 → pos(1,4) H=1. Expand pos(1,4) H=1 → pos(0,4) H=0. Final path is a straight column up!',
+    expanding: [1,4], frontier: [[0,4]],
+    visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2],[1,2],[2,3],[3,3],[2,4],[3,4],[4,4],[1,4],[0,4]],
+    path1: [[2,0],[2,1],[2,2],[2,3],[3,3],[3,4]], path2: [[3,4],[2,4],[1,4]],
+    open: [
+      { label: 'h=0  pos(0,4) 🧍', badge: '← H=0! GOAL', first: true }
+    ],
+    trip: 'Trip 2 — pos(0,4) has H=0, at the front!',
+    goal: false
+  },
+  {
+    title: '✅ ALL DONE — Both survivors rescued! [8 total steps]',
+    desc: 'Pop pos(0,4). Survivor collected! No more remaining survivors. Algorithm terminates. Total: 5 + 3 = 8 steps, 2 survivors.',
+    expanding: null, frontier: [],
+    visited: [[2,0],[1,0],[3,0],[2,1],[4,0],[2,2],[1,2],[2,3],[3,3],[2,4],[3,4],[4,4],[1,4],[0,4]],
+    path1: [[2,0],[2,1],[2,2],[2,3],[3,3],[3,4]], path2: [[3,4],[2,4],[1,4],[0,4]],
+    open: [{ label: '🎉 All survivors rescued!', badge: '', first: true }],
+    trip: '✅ Both survivors collected!',
+    goal: true
+  }
+];
+
+// ──────────────────────────────────────────────────────────────
+// Render grids
+// ──────────────────────────────────────────────────────────────
+buildGrid('bfs-grid');
+buildGrid('gbfs-grid');
+
+function setClass(containerId, r, c, cls) {
+  const el = document.getElementById(`${containerId}-${r}-${c}`);
+  if (!el) return;
+  // Remove overlay classes
+  el.classList.remove('cell-current','cell-frontier','cell-visited','cell-path','cell-goal','cell-trip2');
+  if (cls) el.classList.add(cls);
+}
+
+function renderBFSGrid(step) {
+  // Reset all to base type
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 5; c++)
+      setClass('bfs-grid', r, c, null);
+
+  const s = BFS_STEPS[step];
+
+  // Visited (gray) — applied first
+  s.visited.forEach(([r,c]) => setClass('bfs-grid', r, c, 'cell-visited'));
+  // Frontier (blue)
+  s.frontier.forEach(([r,c]) => setClass('bfs-grid', r, c, 'cell-frontier'));
+  // Path (green)
+  s.path.forEach(([r,c]) => setClass('bfs-grid', r, c, 'cell-path'));
+  // Current (orange)
+  if (s.expanding) setClass('bfs-grid', s.expanding[0], s.expanding[1], 'cell-current');
+  // Goal
+  if (s.goal) setClass('bfs-grid', 3, 4, 'cell-goal');
+}
+
+function renderBFSPanel(step) {
+  const s = BFS_STEPS[step];
+  document.getElementById('bfs-step-title').textContent = s.title;
+  document.getElementById('bfs-step-desc').textContent = s.desc;
+
+  const ol = document.getElementById('bfs-open');
+  ol.innerHTML = s.open.map((item, i) =>
+    `<li style="${i === 0 ? 'border-left-color:#f39c12;background:#2d2008;' : ''}">${item.label}<span class="badge">${item.badge}</span></li>`
+  ).join('');
+
+  const cl = document.getElementById('bfs-closed');
+  cl.innerHTML = s.closedTags.map(t => `<div class="closed-tag">${t}</div>`).join('');
+
+  const bat = s.battery;
+  const fill = document.getElementById('bfs-battery-fill');
+  fill.style.width = bat + '%';
+  fill.style.background = bat > 60 ? '#3fb950' : bat > 30 ? '#e3b341' : '#f85149';
+  document.getElementById('bfs-battery-text').textContent = bat + '%';
+  document.getElementById('bfs-battery-text').style.color = bat > 60 ? '#3fb950' : bat > 30 ? '#e3b341' : '#f85149';
+}
+
+function renderGBFSGrid(step) {
+  for (let r = 0; r < 5; r++)
+    for (let c = 0; c < 5; c++)
+      setClass('gbfs-grid', r, c, null);
+
+  const s = GBFS_STEPS[step];
+  s.visited.forEach(([r,c]) => setClass('gbfs-grid', r, c, 'cell-visited'));
+  s.frontier.forEach(([r,c]) => setClass('gbfs-grid', r, c, 'cell-frontier'));
+  s.path1.forEach(([r,c]) => setClass('gbfs-grid', r, c, 'cell-path'));
+  s.path2.forEach(([r,c]) => setClass('gbfs-grid', r, c, 'cell-trip2'));
+  if (s.expanding) setClass('gbfs-grid', s.expanding[0], s.expanding[1], 'cell-current');
+  if (s.goal) {
+    setClass('gbfs-grid', 3, 4, 'cell-goal');
+    setClass('gbfs-grid', 0, 4, 'cell-goal');
+  }
+}
+
+function renderGBFSPanel(step) {
+  const s = GBFS_STEPS[step];
+  document.getElementById('gbfs-step-title').textContent = s.title;
+  document.getElementById('gbfs-step-desc').textContent = s.desc;
+  document.getElementById('gbfs-trip').textContent = s.trip;
+
+  const ol = document.getElementById('gbfs-open');
+  ol.innerHTML = s.open.map((item, i) =>
+    `<li style="${i === 0 ? 'border-left-color:#a371f7;background:#1a0d2e;' : ''}">${item.label}<span class="badge">${item.badge}</span></li>`
+  ).join('');
+}
+
+// ──────────────────────────────────────────────────────────────
+// Step controllers
+// ──────────────────────────────────────────────────────────────
+let bfsIdx = 0;
+let gbfsIdx = 0;
+
+function buildDots(containerId, total, current, clickFn) {
+  const el = document.getElementById(containerId);
+  el.innerHTML = '';
+  for (let i = 0; i < total; i++) {
+    const d = document.createElement('div');
+    d.className = 'dot' + (i < current ? ' done' : i === current ? ' active' : '');
+    d.onclick = () => clickFn(i - (current > i ? current : current));
+    el.appendChild(d);
+  }
+}
+
+function bfsStep(delta) {
+  bfsIdx = Math.max(0, Math.min(BFS_STEPS.length - 1, bfsIdx + delta));
+  renderBFSGrid(bfsIdx);
+  renderBFSPanel(bfsIdx);
+  document.getElementById('bfs-prev').disabled = bfsIdx === 0;
+  document.getElementById('bfs-next').disabled = bfsIdx === BFS_STEPS.length - 1;
+  document.getElementById('bfs-counter').textContent = `Step ${bfsIdx + 1} / ${BFS_STEPS.length}`;
+  buildDots('bfs-dots', BFS_STEPS.length, bfsIdx, bfsStep);
+  document.getElementById('bfs-result').style.display = (bfsIdx === BFS_STEPS.length - 1) ? 'block' : 'none';
+}
+
+function gbfsStep(delta) {
+  gbfsIdx = Math.max(0, Math.min(GBFS_STEPS.length - 1, gbfsIdx + delta));
+  renderGBFSGrid(gbfsIdx);
+  renderGBFSPanel(gbfsIdx);
+  document.getElementById('gbfs-prev').disabled = gbfsIdx === 0;
+  document.getElementById('gbfs-next').disabled = gbfsIdx === GBFS_STEPS.length - 1;
+  document.getElementById('gbfs-counter').textContent = `Step ${gbfsIdx + 1} / ${GBFS_STEPS.length}`;
+  buildDots('gbfs-dots', GBFS_STEPS.length, gbfsIdx, gbfsStep);
+  document.getElementById('gbfs-result').style.display = (gbfsIdx === GBFS_STEPS.length - 1) ? 'block' : 'none';
+}
+
+// Initialize
+bfsStep(0);
+gbfsStep(0);
+
+// ──────────────────────────────────────────────────────────────
+// Smooth scroll nav
+// ──────────────────────────────────────────────────────────────
+document.querySelectorAll('nav a').forEach(a => {
+  a.addEventListener('click', e => {
+    e.preventDefault();
+    document.querySelectorAll('nav a').forEach(x => x.classList.remove('active'));
+    a.classList.add('active');
+    document.querySelector(a.getAttribute('href')).scrollIntoView({ behavior: 'smooth' });
+  });
+});
+
+const observer = new IntersectionObserver(entries => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      const id = e.target.id;
+      document.querySelectorAll('nav a').forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+      });
+    }
+  });
+}, { threshold: 0.4 });
+
+['s-grid','s-state','s-bfs','s-gbfs','s-compare'].forEach(id => {
+  const el = document.getElementById(id);
+  if (el) observer.observe(el);
+});
+</script>
+</body>
+</html>
