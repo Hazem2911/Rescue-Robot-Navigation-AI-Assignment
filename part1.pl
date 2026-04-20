@@ -1,34 +1,3 @@
-% ============================================================
-%  Part 1 — Rescue Robot Navigation: BFS (Uninformed Search)
-%  Goal: find the shortest path to the nearest survivor.
-%
-%  State representation:
-%    bfs_node(pos(R,C), RevPath, Battery)
-%      pos(R,C)  — current position; 1-indexed, (1,1) = top-left
-%      RevPath   — path from start stored NEWEST-FIRST for O(1) prepend
-%      Battery   — integer 0..100; starts at 100, decremented 10/step
-%
-%  Algorithm choice: BFS
-%    Each move costs exactly 10% battery (uniform cost), so BFS
-%    (FIFO queue) is equivalent to UCS and guarantees the shortest
-%    path, i.e., the nearest survivor is always found first.
-%
-%  Open list  : FIFO queue — children appended to the TAIL.
-%  Closed list: flat list of visited pos(_,_) terms that prevents
-%               the robot from entering the same cell twice.
-%
-%  To run:
-%    swipl part1.pl
-% ============================================================
-
-
-% ============================================================
-% GRIDS
-% Grid cells:  r = robot start | s = survivor
-%              d = debris (blocked) | f = fire (blocked)
-%              e = empty
-% Coordinates: (Row, Col) — 1-indexed, (1,1) = top-left
-% ============================================================
 
 % Example 1 — 4 × 5 grid
 grid1([[r, e, d, e, e],
@@ -66,13 +35,7 @@ find_cell(Grid, Type, pos(R, C)) :-
 % ============================================================
 % MOVE LOGIC
 % ============================================================
-% Directions: up(-1,0)  down(+1,0)  left(0,-1)  right(0,+1)
-%
-% try_move(+Grid, +pos(R,C), +Visited, -pos(NR,NC))
-%   Succeeds for each valid unvisited neighbour:
-%   - within grid boundaries
-%   - not debris (d) or fire (f)
-%   - not already in Visited  (no-revisit rule)
+
 
 try_move(Grid, pos(R, C), Visited, pos(NR, NC)) :-
     grid_dims(Grid, Rows, Cols),

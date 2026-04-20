@@ -1,48 +1,3 @@
-% ============================================================
-%  Part 2 — Rescue Robot Navigation: Greedy Best-First Search
-%  Goal: maximise the number of rescued survivors.
-%
-%  State representation (per GBFS node, within one trip):
-%    gbfs_node(pos(R,C), RevPath, Steps)
-%      pos(R,C)  — current position; 1-indexed, (1,1) = top-left
-%      RevPath   — path from the START OF THIS TRIP, newest-first
-%      Steps     — steps taken in this trip so far
-%
-%  The robot collects survivors in multiple consecutive trips:
-%    Trip 1: GBFS from start  → nearest survivor  (collected)
-%    Trip 2: GBFS from there  → next nearest      (collected)
-%    ...repeat until no more survivors are reachable.
-%
-%  No-revisit rule (applies across the ENTIRE journey):
-%    The robot cannot step on any cell it has already visited in
-%    any previous trip OR the current trip.
-%    AllVisited = RevPath_of_current_state ∪ PathVisited
-%      RevPath      — cells in the current state's path (this trip)
-%      PathVisited  — all cells visited in all previous trips
-%
-%  Open list  : sorted ascending by heuristic H (min-heap as list).
-%  Closed list: positions already added to the open list during the
-%               current GBFS trip — prevents duplicate insertions.
-%
-%  Heuristic H:
-%    Manhattan distance to the nearest remaining (uncollected)
-%    survivor.   H(pos(R,C)) = min over all remaining survivors S of
-%    (|R - Sr| + |C - Sc|).
-%    Lower H = closer to a survivor = higher priority in open list.
-%    H = 999 when no survivors remain (used as a sentinel).
-%
-%  To run:
-%    swipl part2.pl
-% ============================================================
-
-
-% ============================================================
-% GRIDS
-% Grid cells:  r = robot start | s = survivor
-%              d = debris (blocked) | f = fire (blocked)
-%              e = empty
-% Coordinates: (Row, Col) — 1-indexed, (1,1) = top-left
-% ============================================================
 
 % Example 1 — 4 × 5 grid
 grid1([[r, e, d, e, e],
@@ -122,13 +77,7 @@ manhattan_min(Pos, Targets, Min) :-
 % ============================================================
 % GBFS — single trip
 % ============================================================
-% gbfs_one(+Grid, +Start, +PathVisited, +Targets, -SegPath, -GoalPos)
-%
-%   Runs one GBFS trip from Start to the nearest cell in Targets.
-%   PathVisited: all cells the robot has already visited (previous
-%   trips) — these are off-limits for the rest of the journey.
-%   Returns the segment path [Start, ..., GoalPos] for this trip.
-%   Fails if no target is reachable.
+
 
 gbfs_one(Grid, Start, PathVisited, Targets, SegPath, GoalPos) :-
     manhattan_min(Start, Targets, H0),
@@ -186,11 +135,7 @@ insert_h(h(H, N), [h(H2, N2)|T], [h(H2, N2)|T2]) :-
 % ============================================================
 % MULTI-TRIP COLLECTION
 % ============================================================
-% collect_all(+Grid, +Pos, +PathVisited, +Remaining,
-%             +PathAcc, -FinalPath, -TotalSteps, -Collected)
-%
-%   Iteratively uses gbfs_one to collect survivors one by one.
-%   PathAcc / PathVisited grow with each new path segment.
+
 
 % Base case: no survivors left to collect
 collect_all(_, _, _, [], PathAcc, PathAcc, 0, []) :- !.
